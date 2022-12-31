@@ -42,8 +42,6 @@ class FatTreeTopo(Topo):
         for s in range(self.k):
             # Switch name: p{n}_s{s}   IP: 10.n.s.1 
             self.addSwitch(f"p{n}_s{s}", ip=f"10.{n}.{s}.1", dpid=self._compute_dpid(False, n, s))
-            print(self._compute_dpid(False, n, s))
-            print(self.dpid_to_name(self._compute_dpid(False, n, s)))
 
         # Create (k/2)^2 hosts and links to edge switches
         for s in range(self.k_2):
@@ -71,7 +69,6 @@ class FatTreeTopo(Topo):
         @return: dpid
         """
         return bin(core << 15 | (y < self.k_2) << 14 | x << 8 | y)[2:] 
-        
 
 
 topos = {"fattree": (lambda: FatTreeTopo(4))}
