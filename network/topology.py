@@ -1,12 +1,8 @@
 #!/usr/bin/python3
 
 from mininet.topo import Topo
-from mininet.node import OVSKernelSwitch, RemoteController
-from mininet.cli import CLI
-from mininet.link import TCLink
-from comnetsemu.net import Containernet, VNFManager
-from switch import Switch
-from params import FAT_TREE_K
+from network.switch import Switch
+from network.params import FAT_TREE_K
 
 
 class FatTreeTopo(Topo):
@@ -60,24 +56,4 @@ class FatTreeTopo(Topo):
                 self.addLink(f"p{n}_s{edge}", f"p{n}_s{aggr}")
 
 
-topos = {"fattree": (lambda: FatTreeTopo(FAT_TREE_K))}
-
-if __name__ == "__main__":
-    topo = FatTreeTopo(FAT_TREE_K)
-    net = Containernet(
-        topo=topo,
-        controller = RemoteController("c0", ip="127.0.0.1"),
-        switch=OVSKernelSwitch,
-        build=False,
-        autoSetMacs=True,
-        autoStaticArp=True,
-        link=TCLink,
-    )
-
-    mgr = VNFManager(net)
-
-    net.build()
-    net.start()
-
-    CLI(net)
-    net.stop()
+topos = {"fat-tree": (lambda: FatTreeTopo(FAT_TREE_K))}

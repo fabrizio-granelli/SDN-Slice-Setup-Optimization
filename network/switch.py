@@ -1,4 +1,4 @@
-from params import FAT_TREE_K
+from network.params import FAT_TREE_K
 
 class Switch():
 

@@ -2,7 +2,7 @@ from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto import ofproto_v1_5
 from ryu.lib.packet import packet, ipv4
 from switch import Switch
 from params import FAT_TREE_K, slices
@@ -10,7 +10,7 @@ from params import FAT_TREE_K, slices
 
 class TwoLevelRouting(app_manager.RyuApp):
 
-    OFP_VERSIONS = [ ofproto_v1_3.OFP_VERSION ]
+    OFP_VERSIONS = [ ofproto_v1_5.OFP_VERSION ]
 
     def __init__(self, *args, **kwargs):
         super(TwoLevelRouting, self).__init__(*args, **kwargs)
@@ -21,7 +21,7 @@ class TwoLevelRouting(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         """ Configure switches the first time they connect to the ryu controller.
-        Implements the two-level routing mechanism described in the paper (TODO: add name of the paper).
+        Implements the two-level routing mechanism described in the paper by Mohammad Al-Fares et al.
         Configuration of the pod switches for outgoing traffic is left to the MAIN_DISPATCHER to enable slicing.
         """
         datapath = ev.msg.datapath
@@ -99,6 +99,3 @@ class TwoLevelRouting(app_manager.RyuApp):
         inst = [ parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions) ]   # Just a wrapper for actions list
         req = parser.OFPFlowMod(datapath, match=match, instructions=inst, idle_timeout=timeout)
         datapath.send_msg(req)
-
-
-    
