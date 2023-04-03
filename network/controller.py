@@ -6,6 +6,29 @@ from ryu.ofproto import ofproto_v1_5
 from ryu.lib.packet import packet, ipv4
 from switch import Switch
 from params import FAT_TREE_K, slices
+from threading import Thread
+from time import sleep
+
+
+class FlowScheduler(Thread):
+
+    def __init__(self, switches: dict) -> None:
+        super().__init__()
+        self.switches = switches
+
+    
+    def run(self):
+        print('Flow Scheduler has started...')
+        self.running = True
+        self.query_stats()
+
+    
+    def query_stats(self):
+        while self.running:
+            for sw in self.switches.values():
+                print(sw.id)
+            sleep(10)   # Sleep 10 seconds
+
 
 
 class TwoLevelRouting(app_manager.RyuApp):
@@ -16,6 +39,10 @@ class TwoLevelRouting(app_manager.RyuApp):
         super(TwoLevelRouting, self).__init__(*args, **kwargs)
         self.k: int = FAT_TREE_K
         self.k_2: int = int(FAT_TREE_K / 2)       
+        self.switches = {}    # Contains all the datapaths connected to the controller
+        
+        self.scheduler = FlowScheduler(self.switches)
+        self.scheduler.start()  
 
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -26,6 +53,7 @@ class TwoLevelRouting(app_manager.RyuApp):
         """
         datapath = ev.msg.datapath
         switch = Switch(datapath.id)
+        self.switches[datapath.id] = datapath
 
         # Install two-levels routing rules
         if switch.is_core:
