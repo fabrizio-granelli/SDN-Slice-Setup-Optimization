@@ -6,29 +6,7 @@ from ryu.ofproto import ofproto_v1_5
 from ryu.lib.packet import packet, ipv4
 from switch import Switch
 from params import FAT_TREE_K, slices
-from threading import Thread
-from time import sleep
-
-
-class FlowScheduler(Thread):
-
-    def __init__(self, switches: dict) -> None:
-        super().__init__()
-        self.switches = switches
-
-    
-    def run(self):
-        print('Flow Scheduler has started...')
-        self.running = True
-        self.query_stats()
-
-    
-    def query_stats(self):
-        while self.running:
-            for sw in self.switches.values():
-                print(sw.id)
-            sleep(10)   # Sleep 10 seconds
-
+from flow_scheduler import FlowScheduler
 
 
 class TwoLevelRouting(app_manager.RyuApp):
@@ -68,9 +46,6 @@ class TwoLevelRouting(app_manager.RyuApp):
             else:   # Config aggregate switch routing
                 for sub in range(self.k_2):
                     self._add_two_level_flow(datapath, ip=f"10.{switch.pod}.{sub}.0", mask=0xFFFFFF00, port=sub+1)
-            # for hostid in range(2, self.k_2 + 2):
-            #     port = (hostid - 2 + switch.swn) % self.k_2 + self.k_2
-            #     self._add_two_level_flow(datapath, ip=f"0.0.0.{hostid}", mask=0x000000FF, port=port+1)
 
         # Install table-miss flow entry
         match = datapath.ofproto_parser.OFPMatch(eth_type=0x0800)   # Install to IPv4 only 
@@ -102,6 +77,12 @@ class TwoLevelRouting(app_manager.RyuApp):
 
         port = (dst_hostid - 2 + switch.swn) % self.k_2 + self.k_2
         self._add_two_level_flow(msg.datapath, ip=ip_pkt.dst, mask=0xFFFFFFFF, port=port+1, timeout=30)
+
+
+    @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
+    def _port_stats_reply_handler(self, ev):
+        """ Forward port stats event to the scheduler """
+        self.scheduler.save_port_stats(ev.msg.datapath.id, ev.msg.body)
 
 
     def _add_two_level_flow(self, datapath, ip: str, mask: int, port: int, timeout: int = 0) -> None:

@@ -1,4 +1,5 @@
 from network.params import FAT_TREE_K
+import typing
 
 class Switch():
 
@@ -9,6 +10,9 @@ class Switch():
         self.dpid: int = dpid
         # is a core switch
         self.is_core: bool = self.dpid >> 15
+
+        # Initialize port stats for the switch, knowing that the number of ports = FAT_TREE_K
+        self.port_stats: typing.Dict[int, PortStats] = { i : PortStats(0, 0) for i in range(1, FAT_TREE_K + 1) }
 
         if self.is_core:
             # Coordinates within core grid
@@ -51,3 +55,23 @@ class Switch():
         for i in range(2, len(dpid_bin), 4):
             dpid_16 += dpid_bin[i]
         return int(dpid_16, 2)
+
+
+class PortStats():
+
+    def __init__(self, tx_bytes=0, rx_bytes=0) -> None:
+        self.tx_bytes = tx_bytes    # Total amount of transmitted bytes (from the beginning of the simulation)
+        self.rx_bytes = rx_bytes    # Total amount of received bytes (from the beginning of the simulation)
+        self.dtx_bytes = tx_bytes   # Difference between the transmitted bytes now and before the update  
+        self.drx_bytes = rx_bytes   # Difference between the received bytes now and before the update
+
+
+    def update_stats(self, tx_bytes, rx_bytes) -> None:
+        """ Update the current transmitted and received bytes counters along with the delta counters
+        @param tx_bytes: The new tx_bytes value
+        @param rx_bytes: The new rx_bytes value
+        """
+        self.dtx_bytes = tx_bytes - self.tx_bytes
+        self.drx_bytes = rx_bytes - self.rx_bytes
+        self.tx_bytes = tx_bytes
+        self.rx_bytes = rx_bytes
