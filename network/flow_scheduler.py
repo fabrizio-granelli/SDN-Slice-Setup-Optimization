@@ -3,7 +3,6 @@ from time import sleep
 from switch import Switch
 from params import FAT_TREE_K
 import typing
-import pprint
 
 
 class FlowScheduler(Thread):

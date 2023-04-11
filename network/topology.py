@@ -3,6 +3,8 @@
 from mininet.topo import Topo
 from network.switch import Switch
 from network.params import FAT_TREE_K
+from comnetsemu.node import DockerHost
+
 
 
 class FatTreeTopo(Topo):
@@ -46,7 +48,7 @@ class FatTreeTopo(Topo):
         for s in range(self.k_2):
             for h in range(2, self.k_2 + 2):
                 # Host name: p{n}_s{s}_h{h}   IP: 10.n.s.h
-                hostname = self.addHost(f"p{n}_s{s}_h{h}", ip=f"10.{n}.{s}.{h}")
+                hostname = self.addHost(f"p{n}_s{s}_h{h}", ip=f"10.{n}.{s}.{h}", cls=DockerHost, dimage="dev_test")
                 # Link host with lower-layer switch
                 self.addLink(hostname, f"p{n}_s{s}")
 
