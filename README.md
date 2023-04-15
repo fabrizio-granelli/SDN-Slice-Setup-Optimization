@@ -10,7 +10,7 @@ Goal of the project is to develop a RYU-based SDN controller to slice the networ
 
 Software-defined networking (SDN) technology is a new approach to network architectures that enables efficient network configuration and improves performance and monitoring, mostly oriented to cloud computing. A first important step for this project consists of developing a network topology that simulates a real-world scenario in a modern data center.
 
-The class contained in `network/topology.py` implements a special instance of a Clos topology called *Fat-Tree* to interconnect commodity ethernet switches, as described in the research article [*"A scalable, commodity data center network architecture"* (Mohammad Al-Fares et al., 2008)](https://dl.acm.org/doi/10.1145/1402946.1402967). The topology is described by a single parameter $K$ (number of pods, and ports of the switches). An instance of this architecture that employs 48-port Ethernet switches is capable of providing full bandwidh to up 27,648 hosts. The following image shows the first non-trivial Fat-Tree instance (with $K = 4$) used for the simulations in this project.
+The class contained in `network/topology.py` implements a special instance of a Clos topology called *Fat-Tree* to interconnect commodity ethernet switches, as described in the research article [*"A scalable, commodity data center network architecture"* (Mohammad Al-Fares et al., 2008)](https://dl.acm.org/doi/10.1145/1402946.1402967). The topology is described by a single parameter $K$ (number of pods, and ports of the switches). An instance of this architecture that employs 48-port Ethernet switches is capable of providing full bandwidth to up 27,648 hosts. The following image shows the first non-trivial Fat-Tree instance (with $K = 4$) used for the simulations in this project.
 
 <img src="./docs/imgs/fattree.png" /> 
 
@@ -64,4 +64,4 @@ HTML docs will be generated inside the `docs` folder.
 
 ## Copyright
 
-MIT Licence or otherwise specified. See [license](./LICENSE.txt) file for details.
+MIT License or otherwise specified. See [license](./LICENSE.txt) file for details.
