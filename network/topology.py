@@ -18,7 +18,7 @@ class FatTreeTopo(Topo):
 
         # Create k pods
         for n in range(self.k):
-            self._add_pod(n)
+            self.__add_pod(n)
 
         # Create core switches and link to each pod
         for i in range(1, self.k_2 + 1):
@@ -29,7 +29,7 @@ class FatTreeTopo(Topo):
                     self.addLink(switch, f"p{n}_s{self.k_2 + j - 1}")
 
 
-    def _add_pod(self, n: int) -> None:
+    def __add_pod(self, n: int) -> None:
         """Add a pod to the FatTree topology. A pod is composed of two layers
         of k/2 switches. Each k-port switch in the lower layer is directly
         connected to k/2 hosts.

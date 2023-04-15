@@ -5,7 +5,7 @@ class Switch():
 
     def __init__(self, dpid: int = 0) -> None:
         if len(bin(dpid)) > 18: 
-            dpid = self._dpid64_to_dpid16(dpid)
+            dpid = self.__dpid64_to_dpid16(dpid)
 
         self.dpid: int = dpid
         # is a core switch
@@ -44,7 +44,7 @@ class Switch():
         return self.dpid
 
     
-    def _dpid64_to_dpid16(self, dpid_64: int) -> int:
+    def __dpid64_to_dpid16(self, dpid_64: int) -> int:
         """ Convert a 64-bit format dpid to an OpenFlow-standard 16-bit format dpid
         
         @param dpid_64: The 64-bit dpid
@@ -59,14 +59,14 @@ class Switch():
 
 class PortStats():
 
-    def __init__(self, tx_bytes=0, rx_bytes=0) -> None:
-        self.tx_bytes = tx_bytes    # Total amount of transmitted bytes (from the beginning of the simulation)
-        self.rx_bytes = rx_bytes    # Total amount of received bytes (from the beginning of the simulation)
-        self.dtx_bytes = tx_bytes   # Difference between the transmitted bytes now and before the update  
-        self.drx_bytes = rx_bytes   # Difference between the received bytes now and before the update
+    def __init__(self, tx_bytes: int = 0, rx_bytes: int = 0) -> None:
+        self.tx_bytes: int = tx_bytes    # Total amount of transmitted bytes (from the beginning of the simulation)
+        self.rx_bytes: int = rx_bytes    # Total amount of received bytes (from the beginning of the simulation)
+        self.dtx_bytes: int = tx_bytes   # Difference between the transmitted bytes now and before the update  
+        self.drx_bytes: int = rx_bytes   # Difference between the received bytes now and before the update
 
 
-    def update_stats(self, tx_bytes, rx_bytes) -> None:
+    def update_stats(self, tx_bytes: int, rx_bytes: int) -> None:
         """ Update the current transmitted and received bytes counters along with the delta counters
         @param tx_bytes: The new tx_bytes value
         @param rx_bytes: The new rx_bytes value

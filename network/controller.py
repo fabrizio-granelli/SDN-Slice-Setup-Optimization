@@ -24,7 +24,7 @@ class TwoLevelRouting(app_manager.RyuApp):
 
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def switch_features_handler(self, ev):
+    def __switch_features_handler(self, ev) -> None:
         """ Configure switches the first time they connect to the ryu controller.
         Implements the two-level routing mechanism described in the paper by Mohammad Al-Fares et al.
         Configuration of the pod switches for outgoing traffic is left to the MAIN_DISPATCHER to enable slicing.
@@ -37,15 +37,15 @@ class TwoLevelRouting(app_manager.RyuApp):
         if switch.is_core:
             # Config core switch routing
             for pod in range(self.k):
-                self._add_two_level_flow(datapath, ip=f"10.{pod}.0.0", mask=0xFFFF0000, port=pod+1)
+                self.__add_two_level_flow(datapath, ip=f"10.{pod}.0.0", mask=0xFFFF0000, port=pod+1)
         else:
             # Config pod switch routing
             if switch.is_edge:  # Config edge switch routing
                 for hostid in range(2, self.k_2 + 2):
-                    self._add_two_level_flow(datapath, ip=f"10.{switch.pod}.{switch.swn}.{hostid}", mask=0xFFFFFFFF, port=hostid-1)
+                    self.__add_two_level_flow(datapath, ip=f"10.{switch.pod}.{switch.swn}.{hostid}", mask=0xFFFFFFFF, port=hostid-1)
             else:   # Config aggregate switch routing
                 for sub in range(self.k_2):
-                    self._add_two_level_flow(datapath, ip=f"10.{switch.pod}.{sub}.0", mask=0xFFFFFF00, port=sub+1)
+                    self.__add_two_level_flow(datapath, ip=f"10.{switch.pod}.{sub}.0", mask=0xFFFFFF00, port=sub+1)
 
         # Install table-miss flow entry
         match = datapath.ofproto_parser.OFPMatch(eth_type=0x0800)   # Install to IPv4 only 
@@ -55,7 +55,7 @@ class TwoLevelRouting(app_manager.RyuApp):
 
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def _packet_in_handler(self, ev):
+    def __packet_in_handler(self, ev) -> None:
         """ Switches send PacketIn after matching table-miss entry (installed by CONFIG_DISPATCHER).
         Get ip src and dst, check whether hosts can communicate based on slice policy, install flow if granted by policy.
         Only Pod switches are configured for slicing (not core switches), therefore pkts with wrong destination are dropped at the first stage.
@@ -76,16 +76,16 @@ class TwoLevelRouting(app_manager.RyuApp):
             return
 
         port = (dst_hostid - 2 + switch.swn) % self.k_2 + self.k_2
-        self._add_two_level_flow(msg.datapath, ip=ip_pkt.dst, mask=0xFFFFFFFF, port=port+1, timeout=30)
+        self.__add_two_level_flow(msg.datapath, ip=ip_pkt.dst, mask=0xFFFFFFFF, port=port+1, timeout=30)
 
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
-    def _port_stats_reply_handler(self, ev):
+    def __port_stats_reply_handler(self, ev) -> None:
         """ Forward port stats event to the scheduler """
         self.scheduler.save_port_stats(ev.msg.datapath.id, ev.msg.body)
 
 
-    def _add_two_level_flow(self, datapath, ip: str, mask: int, port: int, timeout: int = 0) -> None:
+    def __add_two_level_flow(self, datapath, ip: str, mask: int, port: int, timeout: int = 0) -> None:
         """ Send OFPFlowMod message to set a new entry to the flowtable of the switch identified by datapath.
         This flowtable configuration works as a routing table. 
 
