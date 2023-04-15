@@ -6,7 +6,6 @@ from network.params import FAT_TREE_K
 from comnetsemu.node import DockerHost
 
 
-
 class FatTreeTopo(Topo):
     
     def __init__(self, k: int) -> None:
