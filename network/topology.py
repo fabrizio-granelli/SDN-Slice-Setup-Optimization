@@ -2,7 +2,7 @@
 
 from mininet.topo import Topo
 from network.switch import Switch
-from network.params import FAT_TREE_K
+from network.globals import FAT_TREE_K
 from comnetsemu.node import DockerHost
 
 

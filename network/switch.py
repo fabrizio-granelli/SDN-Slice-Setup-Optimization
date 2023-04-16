@@ -1,9 +1,10 @@
-from network.params import FAT_TREE_K
+from network.globals import FAT_TREE_K
 import typing
 
 class Switch():
 
     def __init__(self, dpid: int = 0) -> None:
+        self.dpid64 = dpid
         if len(bin(dpid)) > 18: 
             dpid = self.__dpid64_to_dpid16(dpid)
 
@@ -43,6 +44,11 @@ class Switch():
         self.dpid = bin(core << 15 | (y < (int)(FAT_TREE_K / 2)) << 14 | x << 8 | y)[2:] 
         return self.dpid
 
+
+    def reset_downlink_flows(self) -> None:
+        for port in range(1, FAT_TREE_K + 1):
+            self.port_stats[port].downlink_flows = 0
+
     
     def __dpid64_to_dpid16(self, dpid_64: int) -> int:
         """ Convert a 64-bit format dpid to an OpenFlow-standard 16-bit format dpid
@@ -64,6 +70,7 @@ class PortStats():
         self.rx_bytes: int = rx_bytes    # Total amount of received bytes (from the beginning of the simulation)
         self.dtx_bytes: int = tx_bytes   # Difference between the transmitted bytes now and before the update  
         self.drx_bytes: int = rx_bytes   # Difference between the received bytes now and before the update
+        self.downlink_flows: int = 0
 
 
     def update_stats(self, tx_bytes: int, rx_bytes: int) -> None:

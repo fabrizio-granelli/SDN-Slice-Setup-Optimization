@@ -3,7 +3,7 @@ from mininet.cli import CLI
 from mininet.link import TCLink
 from comnetsemu.net import Containernet, VNFManager
 from comnetsemu.node import DockerHost
-from network.params import FAT_TREE_K
+from network.globals import FAT_TREE_K
 from network.topology import FatTreeTopo 
 import time
 
@@ -36,13 +36,20 @@ def main():
     print("Created server")
     time.sleep(3)
 
-    clog = mgr.addContainer(
-        'Clientone', 'p1_s0_h2', 'service_migration',  'python3 /home/client.py'
+    clog1 = mgr.addContainer(
+        'Clientone1', 'p1_s0_h2', 'service_migration',  'python3 /home/client.py'
     )
-    print("Created client")
+    print("Created client 1")
+
+    clog2 = mgr.addContainer(
+        'Clientone2', 'p2_s0_h2', 'service_migration',  'python3 /home/client.py'
+    )
+    print("Created client 2")
+    
     time.sleep(10)
 
-    print(clog.getLogs())
+    print("Client 1", clog1.getLogs())
+    print("Client 2", clog2.getLogs())
 
 
     CLI(net)

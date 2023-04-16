@@ -1,7 +1,7 @@
 from threading import Thread
 from time import sleep
 from switch import Switch
-from params import FAT_TREE_K
+from globals import FAT_TREE_K
 from ryu.ofproto.ofproto_v1_5_parser import OFPPortStats
 import typing
 
@@ -30,8 +30,7 @@ class FlowScheduler(Thread):
 
 
     def run(self):
-        """ Execute as a separated thread """
-        print('Flow Scheduler has started...')
+        """ Execute as a separate thread """
         self.running = True 
         self.__main_loop(5)
 
@@ -45,10 +44,10 @@ class FlowScheduler(Thread):
 
             self.__update_detected_flows()
             self.__detect_flows()
+            self.__schedule_paths(sleeptime)
             self.__send_port_status_req()
 
-            self.print_switches_info()
-            self.print_flows_info()
+            # self.print_flows_info()
 
             sleep(sleeptime)   
 
@@ -65,23 +64,57 @@ class FlowScheduler(Thread):
         for switch in self.switches.values():
             if not switch.is_core:
                 continue    # Not interested in flows on pod switches
-            discovered_out_ports = []
-            for in_port in range(1, FAT_TREE_K + 1):
-                if switch.port_stats[in_port].drx_bytes > 1000:
-                    for out_port in range(1, FAT_TREE_K + 1):
-                        if switch.port_stats[out_port].dtx_bytes > 1000 and not out_port in discovered_out_ports and in_port != out_port:
-                            discovered_out_ports.append(out_port)
-                            self.flows.append(Flow(switch.dpid, in_port, out_port, 2))
-                            break
+
+            for out_port in range(1, FAT_TREE_K + 1):
+                tx = switch.port_stats[out_port].dtx_bytes
+                if tx < 1000:
+                    continue    # Not enough data transmitted from this port
+                for in_port in range(1, FAT_TREE_K + 1):
+                    rx = switch.port_stats[in_port].drx_bytes
+                    if in_port == out_port or rx < 1000 or tx < 1000:
+                        continue
+                    # Discovered flow
+                    self.flows.append(Flow(switch.dpid64, in_port, out_port, 1))
+                    tx = tx - rx
+
+
+    def __schedule_paths(self, timeout: int):
+        # Reset downlinks stats on switch objects
+        for sw in self.switches.values():
+            sw.reset_downlink_flows()
+
+        # Update downlink flows counters 
+        for flow in self.flows:
+            self.switches[flow.switch.dpid64].port_stats[flow.out_pod].downlink_flows += 1
+
+        # Find downlinks with more than one active flows
+        congested_downlinks = []
+        for sw in self.switches.values():
+            for port in range(1, FAT_TREE_K + 1):
+                if sw.port_stats[port].downlink_flows > 1:
+                    congested_downlinks.append((sw.dpid64, port))
+
+        for downlink in congested_downlinks:
+            flows = []  # Find flows related to congested downlinks
+            for flow in self.flows:
+                if flow.switch.dpid64 == downlink[0] and flow.out_pod == downlink[1]:
+                    flows.append(flow)
+            for flow in flows[1:]:  # Skip first flow of the list, no need to change its path
+                # Send rule to aggregate switch to change path 
+                for dpid, dp in self.datapaths.items():
+                    sw = Switch(dpid)
+                    if not sw.is_core and sw.pod == flow.in_pod and sw.swn == flow.switch.j + 1:
+                        print("Send update rule to", sw.name)
 
 
     def __send_port_status_req(self) -> None:
-        """ Send a Port Status Request to every switch in the network """
+        """ Send a Port Status Request to core switches in the network """
         for dpid, datapath in self.datapaths.items():
-            ofp = datapath.ofproto
-            ofp_parser = datapath.ofproto_parser
-            req = ofp_parser.OFPPortStatsRequest(datapath, 0, ofp.OFPP_ANY)
-            datapath.send_msg(req)
+            if Switch(dpid).is_core:
+                ofp = datapath.ofproto
+                ofp_parser = datapath.ofproto_parser
+                req = ofp_parser.OFPPortStatsRequest(datapath, 0, ofp.OFPP_ANY)
+                datapath.send_msg(req)
 
 
     def save_port_stats(self, dpid: int, stats: typing.List[OFPPortStats]) -> None:
@@ -107,8 +140,9 @@ class FlowScheduler(Thread):
     def print_switches_info(self):
         """ Print the saved port statistics """
         for switch in self.switches.values():
-            print(f'{switch.dpid} ->')
-            for i in range(1, FAT_TREE_K + 1):
-                print(f'\t port {i} -- TX: {switch.port_stats[i].dtx_bytes}, RX: {switch.port_stats[i].drx_bytes}')
+            if switch.is_core:
+                print(f'{switch.dpid} ->')
+                for i in range(1, FAT_TREE_K + 1):
+                    print(f'\t port {i} -- TX: {switch.port_stats[i].dtx_bytes}, RX: {switch.port_stats[i].drx_bytes}')
 
         

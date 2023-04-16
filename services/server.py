@@ -11,7 +11,7 @@ class WebServer(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-type", "text/html")
         self.end_headers()
-        self.wfile.write(bytes("UNITN " * 10, "utf-8"))
+        self.wfile.write(bytes("UNITN " * 100, "utf-8"))
 
 
 if __name__ == "__main__":        

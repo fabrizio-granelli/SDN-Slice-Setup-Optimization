@@ -5,8 +5,9 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_5
 from ryu.lib.packet import packet, ipv4
 from switch import Switch
-from params import FAT_TREE_K, slices
+from globals import FAT_TREE_K, slices
 from flow_scheduler import FlowScheduler
+import typing
 
 
 class TwoLevelRouting(app_manager.RyuApp):
