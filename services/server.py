@@ -1,23 +1,20 @@
 # Python 3 server example
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import time
-
-hostName = "10.0.0.2"
-serverPort = 8080
+import sys
 
 class WebServer(BaseHTTPRequestHandler):
 
     def do_GET(self):
         self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
         self.wfile.write(bytes("UNITN " * 100, "utf-8"))
 
 
-if __name__ == "__main__":        
-    webServer = HTTPServer((hostName, serverPort), WebServer)
+def main(hostname: str):
+    port = 8080
     
-    print("Server started http://%s:%s" % (hostName, serverPort))
+    webServer = HTTPServer((hostname, port), WebServer)
+    
+    print(f'Server started http://{hostname}:{port}')
 
     try:
         webServer.serve_forever()
@@ -25,4 +22,13 @@ if __name__ == "__main__":
         pass
 
     webServer.server_close()
-    print("Server stopped.")
+
+
+
+if __name__ == "__main__":     
+    # Parse arguments
+    if len(sys.argv) < 2:
+        exit()
+    hostname = sys.argv[1]
+
+    main(hostname)

@@ -4,6 +4,7 @@ from switch import Switch
 from globals import FAT_TREE_K
 from ryu.ofproto.ofproto_v1_5_parser import OFPPortStats
 import typing
+import pickle
 
 
 class Flow():
@@ -20,6 +21,13 @@ class Flow():
         self.ttl -= 1
 
 
+class DownLink():
+
+    def __init__(self, switch, dst_pod):
+        self.switch = switch
+        self.dst_pod = dst_pod
+
+
 class FlowScheduler(Thread):
 
     def __init__(self, datapaths) -> None:
@@ -32,7 +40,7 @@ class FlowScheduler(Thread):
     def run(self):
         """ Execute as a separate thread """
         self.running = True 
-        self.__main_loop(5)
+        self.__main_loop(30)
 
     
     def __main_loop(self, sleeptime: int = 5) -> None:
@@ -47,7 +55,8 @@ class FlowScheduler(Thread):
             self.__schedule_paths(sleeptime)
             self.__send_port_status_req()
 
-            # self.print_flows_info()
+            self.print_flows_info()
+            self.print_switches_info()
 
             sleep(sleeptime)   
 
@@ -74,7 +83,7 @@ class FlowScheduler(Thread):
                     if in_port == out_port or rx < 1000 or tx < 1000:
                         continue
                     # Discovered flow
-                    self.flows.append(Flow(switch.dpid64, in_port, out_port, 1))
+                    self.flows.append(Flow(switch.dpid64, in_port-1, out_port-1, 1))
                     tx = tx - rx
 
 
@@ -85,27 +94,70 @@ class FlowScheduler(Thread):
 
         # Update downlink flows counters 
         for flow in self.flows:
-            self.switches[flow.switch.dpid64].port_stats[flow.out_pod].downlink_flows += 1
+            self.switches[flow.switch.dpid64].port_stats[flow.out_pod+1].downlink_flows += 1
 
         # Find downlinks with more than one active flows
-        congested_downlinks = []
+        congested_downlinks: typing.List[DownLink] = []
         for sw in self.switches.values():
             for port in range(1, FAT_TREE_K + 1):
                 if sw.port_stats[port].downlink_flows > 1:
-                    congested_downlinks.append((sw.dpid64, port))
+                    congested_downlinks.append(DownLink(Switch(sw.dpid64), port - 1))
+                    print(f'Discovered congested downlink on {sw.name} to pod {port - 1}')
 
+        # Load services
+        services = {}
+        with open('services.obj', 'rb') as file:
+            services = pickle.load(file)
+
+        # Search for services related to discovered congestion
         for downlink in congested_downlinks:
-            flows = []  # Find flows related to congested downlinks
-            for flow in self.flows:
-                if flow.switch.dpid64 == downlink[0] and flow.out_pod == downlink[1]:
-                    flows.append(flow)
-            for flow in flows[1:]:  # Skip first flow of the list, no need to change its path
-                # Send rule to aggregate switch to change path 
-                for dpid, dp in self.datapaths.items():
-                    sw = Switch(dpid)
-                    if not sw.is_core and sw.pod == flow.in_pod and sw.swn == flow.switch.j + 1:
-                        print("Send update rule to", sw.name)
+            for srv, ip in services.items():
+                srv_pod = int(ip.split('.')[1])
+                if srv_pod == downlink.dst_pod:
+                    # Find pod with an available downlink and server
+                    for pod in range(0, FAT_TREE_K):
+                        
+                        available_core_sw = { sw.dpid64: True for sw in self.switches.values() if sw.is_core }
+                        for dl in congested_downlinks:
+                            if pod == dl.dst_pod:
+                                available_core_sw[dl.switch.dpid64] = False
+                        
+                        if not True in available_core_sw.values():
+                            continue
 
+                        host_available = ''
+                        for s in range(0, int(FAT_TREE_K / 2)):
+                            for h in range(2, int(FAT_TREE_K / 2) + 2):
+                                host = f'10.{pod}.{s}.{h}'
+                                if host not in services.values():
+                                    host_available = host
+                                    break
+                            if host_available != '':
+                                break
+
+                        if host_available == '':
+                            continue
+                        
+                        # Update services
+                        services[srv] = host_available
+                        with open('services.obj', 'wb') as file:
+                            pickle.dump(services, file)
+
+                        core_switch = None
+                        for sw, is_available in available_core_sw.items():
+                            if is_available:
+                                core_switch = sw
+                                break
+
+                        self.__create_path(host_available, Switch(core_switch))
+                        return  # Other congested downlinks could be still there,
+                                # in case the services will be migrated on the next scheduler cycle 
+
+
+    def __create_path(self, dst: str, via_switch: Switch):
+        print(f'Create path to {dst} via {via_switch.name}')
+        pass
+                            
 
     def __send_port_status_req(self) -> None:
         """ Send a Port Status Request to core switches in the network """

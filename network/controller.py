@@ -26,7 +26,7 @@ class TwoLevelRouting(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def __switch_features_handler(self, ev) -> None:
-        """ Configure switches the first time they connect to the ryu controller.
+        """ Configure switches the first time they connect to the ryu controller - Incoming traffic ONLY
         Implements the two-level routing mechanism described in the paper by Mohammad Al-Fares et al.
         Configuration of the pod switches for outgoing traffic is left to the MAIN_DISPATCHER to enable slicing.
         """
