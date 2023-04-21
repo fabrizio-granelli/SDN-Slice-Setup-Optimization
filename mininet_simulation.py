@@ -6,31 +6,48 @@ from comnetsemu.node import DockerHost
 from network.globals import FAT_TREE_K, services
 from network.topology import FatTreeTopo 
 import pickle
+import pathlib
 import time
 
 
 mgr: VNFManager = None
 running_services = {}
+abs_path = pathlib.Path(__file__).parent.resolve()
 
 def spawn_service(name: str, ip: str) -> APPContainer:
     hostname = get_hostname(ip)
     running_services[name] = ip
-    return mgr.addContainer(
-        f'srv{name}_{hostname}', hostname, 'service_migration', 'python3 /home/server.py ' + ip
+    return mgr.addContainer( 
+        name=f'srv{name}_{hostname}', 
+        dhost=hostname, 
+        dimage='service_migration', 
+        dcmd='python3 /home/server.py ' + ip, 
+        docker_args={
+            'volumes': {f'{abs_path}/services/' : { 'bind': '/home', 'mode': 'ro' } } 
+        }
     )
 
 
 def migrate_service(name: str, old_ip: str, new_ip: str) -> APPContainer:
-    new_hostname = get_hostname(new_ip)
     old_hostname = get_hostname(old_ip)
 
-    new_srv = mgr.addContainer(
-        f'srv{name}_{new_hostname}', new_hostname, 'service_migration', 'python3 /home/server.py ' + new_ip
-    )
-    mgr.removeContainer(f'srv{name}_{old_hostname}')
+    new_srv = spawn_service(name, new_ip)
+    mgr.removeContainer( f'srv{name}_{old_hostname}' )
     
     running_services[name] = new_ip
     return new_srv
+
+
+def spawn_client(name: str, host: str, target_srv: str) -> APPContainer:
+    return mgr.addContainer(
+        name=name,
+        dhost=host,
+        dimage='service_migration',
+        dcmd='python3 /home/client.py ' + target_srv,
+        docker_args={
+            'volumes': {f'{abs_path}/services/' : { 'bind': '/home', 'mode': 'ro' } } 
+        }
+    )
 
 
 def get_hostname(ip: str) -> str:
@@ -47,7 +64,7 @@ def main():
 
     # Dump services dict to make it globally available
     global services
-    with open('services.obj', 'wb') as file:
+    with open('./services/services.obj', 'wb') as file:
         pickle.dump(services, file)
 
     # Create topology and start network
@@ -70,8 +87,8 @@ def main():
     
     simulation_running = True
 
-    clog1 = mgr.addContainer( 'clientone1', 'p1_s0_h2', 'service_migration',  'python3 /home/client.py 10.0.0.2' )
-    clog2 = mgr.addContainer( 'clientone2', 'p2_s0_h2', 'service_migration',  'python3 /home/client.py 10.0.1.2' )
+    spawn_client(name='c1', host='p1_s0_h2', target_srv='0')
+    spawn_client(name='c2', host='p2_s0_h2', target_srv='1')
 
     while simulation_running:
         try:
@@ -79,7 +96,7 @@ def main():
             for srv, ip in services.items():
 
                 # Load services
-                with open('services.obj', 'rb') as file:
+                with open('./services/services.obj', 'rb') as file:
                     services = pickle.load(file)
 
                 # Check for updates on services

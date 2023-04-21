@@ -40,7 +40,7 @@ class FlowScheduler(Thread):
     def run(self):
         """ Execute as a separate thread """
         self.running = True 
-        self.__main_loop(30)
+        self.__main_loop(10)
 
     
     def __main_loop(self, sleeptime: int = 5) -> None:
@@ -48,16 +48,19 @@ class FlowScheduler(Thread):
 
         @param sleeptime: the time between the port stats requests 
         """
+        cont = 1
         while self.running:
 
             self.__update_detected_flows()
             self.__detect_flows()
-            self.__schedule_paths(sleeptime)
+            if (cont % 4 == 0):
+                self.__schedule_paths(sleeptime)
             self.__send_port_status_req()
 
             self.print_flows_info()
             self.print_switches_info()
 
+            cont += 1
             sleep(sleeptime)   
 
 
@@ -106,7 +109,7 @@ class FlowScheduler(Thread):
 
         # Load services
         services = {}
-        with open('services.obj', 'rb') as file:
+        with open('./services/services.obj', 'rb') as file:
             services = pickle.load(file)
 
         # Search for services related to discovered congestion
@@ -140,7 +143,7 @@ class FlowScheduler(Thread):
                         
                         # Update services
                         services[srv] = host_available
-                        with open('services.obj', 'wb') as file:
+                        with open('./services/services.obj', 'wb') as file:
                             pickle.dump(services, file)
 
                         core_switch = None
@@ -155,6 +158,8 @@ class FlowScheduler(Thread):
 
 
     def __create_path(self, dst: str, via_switch: Switch):
+        # TODO Make sure the new host is in the same slice as the previous one
+        # TODO Create path to dst host that goes through via_switch
         print(f'Create path to {dst} via {via_switch.name}')
         pass
                             
