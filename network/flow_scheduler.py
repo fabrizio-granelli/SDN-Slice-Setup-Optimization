@@ -3,6 +3,7 @@ from time import sleep
 from switch import Switch
 from globals import FAT_TREE_K, slices
 from ryu.ofproto.ofproto_v1_5_parser import OFPPortStats
+from ryu.controller.controller import Datapath
 import typing
 import pickle
 
@@ -23,16 +24,17 @@ class Flow():
 
 class DownLink():
 
-    def __init__(self, switch, dst_pod):
-        self.switch = switch
-        self.dst_pod = dst_pod
+    def __init__(self, switch: Switch, dst_pod: int):
+        self.switch: Switch = switch
+        self.dst_pod: int = dst_pod
 
 
 class FlowScheduler(Thread):
 
-    def __init__(self, datapaths) -> None:
+    def __init__(self, datapaths: typing.Dict[int, Datapath], add_flow_callback: typing.Callable) -> None:
         super().__init__()
-        self.datapaths = datapaths
+        self.datapaths: typing.Dict[int, Datapath] = datapaths
+        self.add_flow_callback: typing.Callable = add_flow_callback
         self.switches: typing.Dict[int, Switch] = {}
         self.flows: typing.List[Flow] = []
         self.congestions: typing.List[DownLink] = []
@@ -55,7 +57,11 @@ class FlowScheduler(Thread):
             self.__detect_flows()
             self.__detect_congestions()
             self.__send_port_status_req()
-            
+            # TODO Before migrating a service, check if other paths are available
+            # in case, set the new path
+            # Use a flag from global parameters to change this rule and 
+            # readily migrate the service instead of searching for other paths (to be used for the presentation/demo)
+            # TODO When creating a new path, add flowtable entry with high priority
             if (cont % 4 == 0):
                 self.__optimize_services()
 
@@ -152,13 +158,13 @@ class FlowScheduler(Thread):
         @param congested_downlinks: The list of currently congested downlinks
         @return Available core switch || None
         """
-        available_core_sw = { sw: True for sw in self.switches.values() if sw.is_core }
+        available_core_sw = { sw.dpid64: True for sw in self.switches.values() if sw.is_core }
         for dl in self.congestions:
             if pod == dl.dst_pod:
                 available_core_sw[dl.switch.dpid64] = False
-
-        for sw, is_available in available_core_sw.items():
+        for dpid, is_available in available_core_sw.items():
             if is_available:
+                sw = Switch(dpid)
                 print(f'Found available core switch: {sw.name}')
                 return sw
 
@@ -205,9 +211,26 @@ class FlowScheduler(Thread):
         
 
     def __create_path(self, dst: str, via_switch: Switch) -> None:
-        # TODO Create path to dst host that goes through via_switch
         print(f'Create path to {dst} via {via_switch.name}')
-        pass
+        
+        for dpid, datapath in self.datapaths.items():
+            sw = Switch(dpid)
+            if sw.is_core: 
+                continue
+            
+            port = -1
+            if sw.is_edge:      # Edge
+                port = int(FAT_TREE_K / 2) + via_switch.j
+            if not sw.is_edge:  # Aggregate
+                port = int(FAT_TREE_K / 2) + via_switch.i
+
+            self.add_flow_callback(
+                datapath=datapath, 
+                ip=dst, 
+                mask=0xFFFFFFFF, 
+                port=port, 
+                timeout=30
+            )
                             
 
     def __send_port_status_req(self) -> None:
