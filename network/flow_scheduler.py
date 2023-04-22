@@ -1,7 +1,7 @@
 from threading import Thread
 from time import sleep
 from switch import Switch
-from globals import FAT_TREE_K
+from globals import FAT_TREE_K, slices
 from ryu.ofproto.ofproto_v1_5_parser import OFPPortStats
 import typing
 import pickle
@@ -35,6 +35,7 @@ class FlowScheduler(Thread):
         self.datapaths = datapaths
         self.switches: typing.Dict[int, Switch] = {}
         self.flows: typing.List[Flow] = []
+        self.congestions: typing.List[DownLink] = []
 
 
     def run(self):
@@ -51,28 +52,25 @@ class FlowScheduler(Thread):
         cont = 1
         while self.running:
 
-            self.__update_detected_flows()
             self.__detect_flows()
-            if (cont % 4 == 0):
-                self.__schedule_paths(sleeptime)
+            self.__detect_congestions()
             self.__send_port_status_req()
+            
+            if (cont % 4 == 0):
+                self.__optimize_services()
 
-            self.print_flows_info()
             self.print_switches_info()
 
             cont += 1
             sleep(sleeptime)   
 
 
-    def __update_detected_flows(self) -> None:
-        """ Update flows TTL and remove expired flows """
+    def __detect_flows(self) -> None:
+        """ Update flows TTL and search for new flows on core switches """ 
         for flow in self.flows:
             flow.update_ttl()
         self.flows = [ flow for flow in self.flows if flow.ttl > 0 ]
 
-
-    def __detect_flows(self) -> None:
-        """ Search for flows on core switches """
         for switch in self.switches.values():
             if not switch.is_core:
                 continue    # Not interested in flows on pod switches
@@ -86,11 +84,14 @@ class FlowScheduler(Thread):
                     if in_port == out_port or rx < 1000 or tx < 1000:
                         continue
                     # Discovered flow
-                    self.flows.append(Flow(switch.dpid64, in_port-1, out_port-1, 1))
+                    flow = Flow(switch.dpid64, in_port-1, out_port-1, 1)
+                    self.flows.append(flow)
+                    print(f"Flow on switch {flow.switch.name} from pod {flow.in_pod} to pod {flow.out_pod}")
                     tx = tx - rx
 
 
-    def __schedule_paths(self, timeout: int):
+    def __detect_congestions(self) -> None:
+        """ Discover downlinks with more than one running flows """
         # Reset downlinks stats on switch objects
         for sw in self.switches.values():
             sw.reset_downlink_flows()
@@ -100,65 +101,110 @@ class FlowScheduler(Thread):
             self.switches[flow.switch.dpid64].port_stats[flow.out_pod+1].downlink_flows += 1
 
         # Find downlinks with more than one active flows
-        congested_downlinks: typing.List[DownLink] = []
+        self.congestions = []
         for sw in self.switches.values():
             for port in range(1, FAT_TREE_K + 1):
                 if sw.port_stats[port].downlink_flows > 1:
-                    congested_downlinks.append(DownLink(Switch(sw.dpid64), port - 1))
+                    self.congestions.append(DownLink(Switch(sw.dpid64), port - 1))
                     print(f'Discovered congested downlink on {sw.name} to pod {port - 1}')
 
+
+    def __optimize_services(self) -> None:
+        """ Find new solutions for running services to eliminate congestions """
         # Load services
         services = {}
         with open('./services/services.obj', 'rb') as file:
             services = pickle.load(file)
 
         # Search for services related to discovered congestion
-        for downlink in congested_downlinks:
+        for downlink in self.congestions:
             for srv, ip in services.items():
                 srv_pod = int(ip.split('.')[1])
                 if srv_pod == downlink.dst_pod:
                     # Find pod with an available downlink and server
                     for pod in range(0, FAT_TREE_K):
                         
-                        available_core_sw = { sw.dpid64: True for sw in self.switches.values() if sw.is_core }
-                        for dl in congested_downlinks:
-                            if pod == dl.dst_pod:
-                                available_core_sw[dl.switch.dpid64] = False
-                        
-                        if not True in available_core_sw.values():
+                        core_switch = self.__search_available_core_sw(pod)
+                        if core_switch == None:
                             continue
 
-                        host_available = ''
-                        for s in range(0, int(FAT_TREE_K / 2)):
-                            for h in range(2, int(FAT_TREE_K / 2) + 2):
-                                host = f'10.{pod}.{s}.{h}'
-                                if host not in services.values():
-                                    host_available = host
-                                    break
-                            if host_available != '':
-                                break
-
-                        if host_available == '':
+                        available_host = self.__search_available_host(pod, services)
+                        if available_host == None:
                             continue
                         
                         # Update services
-                        services[srv] = host_available
+                        print(f'Moved service {srv} to host {available_host}')
+                        services[srv] = available_host
                         with open('./services/services.obj', 'wb') as file:
                             pickle.dump(services, file)
 
-                        core_switch = None
-                        for sw, is_available in available_core_sw.items():
-                            if is_available:
-                                core_switch = sw
-                                break
+                        self.__update_slice(ip, available_host)
 
-                        self.__create_path(host_available, Switch(core_switch))
+                        self.__create_path(available_host, core_switch)
                         return  # Other congested downlinks could be still there,
                                 # in case the services will be migrated on the next scheduler cycle 
 
 
-    def __create_path(self, dst: str, via_switch: Switch):
-        # TODO Make sure the new host is in the same slice as the previous one
+    def __search_available_core_sw(self, pod: int) -> typing.Optional[Switch]:
+        """ Return a core switch whose downlink to the specified pod is not congested 
+        
+        @param pod: Identifies the connection that must be available from the switch
+        @param congested_downlinks: The list of currently congested downlinks
+        @return Available core switch || None
+        """
+        available_core_sw = { sw: True for sw in self.switches.values() if sw.is_core }
+        for dl in self.congestions:
+            if pod == dl.dst_pod:
+                available_core_sw[dl.switch.dpid64] = False
+
+        for sw, is_available in available_core_sw.items():
+            if is_available:
+                print(f'Found available core switch: {sw.name}')
+                return sw
+
+
+    def __search_available_host(self, pod: int, services: dict) -> typing.Optional[str]:
+        """ Return host IP on requested pod with no running services 
+        
+        @param pod: Pod where to search for available host
+        @param services: Dict of currently running services
+        @return available host IP || None 
+        """
+        for s in range(0, int(FAT_TREE_K / 2)):
+            for h in range(2, int(FAT_TREE_K / 2) + 2):
+                host = f'10.{pod}.{s}.{h}'
+                if host not in services.values():
+                    print(f'Found available host: {host}')
+                    return host
+
+
+    def __update_slice(self, old_srv: str, new_srv: str) -> None:
+        """ Update slices list to place new service in the same slice of old service
+
+        @param old_srv: The old service to get its slice
+        @param new_srv: The new service to add to the slice
+        """
+        # Check if new srv is already in the right slice
+        new_slice, old_slice = -1, -1
+        for slice_id, srvs in slices.items():
+            if old_srv in srvs:
+                if new_srv in srvs:
+                    print('Slices are already correctly setup')
+                    return
+                new_slice = slice_id
+            if new_srv in srvs:
+                old_slice = slice_id
+
+        # Add new srv to the slice 
+        slices[new_slice].append(new_srv)
+        print(f'Added host {new_srv} to slice {new_slice}')
+
+        # Remove new srv from old slice
+        if old_slice != -1:
+            slices[old_slice].remove(new_srv)
+        
+
+    def __create_path(self, dst: str, via_switch: Switch) -> None:
         # TODO Create path to dst host that goes through via_switch
         print(f'Create path to {dst} via {via_switch.name}')
         pass
@@ -188,18 +234,16 @@ class FlowScheduler(Thread):
                 self.switches[dpid].port_stats[stat.port_no].update_stats(stat.tx_bytes, stat.rx_bytes)
 
 
-    def print_flows_info(self):
-        """ Print the currently detected flows and their information """
-        for flow in self.flows:
-            print(f"Flow on switch {flow.switch.name} from pod {flow.in_pod} to pod {flow.out_pod}")
-
-
     def print_switches_info(self):
         """ Print the saved port statistics """
+        if len(self.switches.values()) == 0:
+            return
+        print('\n=============== Core Switch Port Statistics ===============')
         for switch in self.switches.values():
             if switch.is_core:
-                print(f'{switch.dpid} ->')
+                print(f'{switch.name} :')
                 for i in range(1, FAT_TREE_K + 1):
-                    print(f'\t port {i} -- TX: {switch.port_stats[i].dtx_bytes}, RX: {switch.port_stats[i].drx_bytes}')
+                    print(f'\t port {i} -- TX: {switch.port_stats[i].dtx_bytes}, \tRX: {switch.port_stats[i].drx_bytes}')
+        print('=============== =========================== ===============\n')
 
         
