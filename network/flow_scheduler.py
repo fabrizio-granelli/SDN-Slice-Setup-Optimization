@@ -1,5 +1,5 @@
 from threading import Thread
-from time import sleep
+from time import sleep, time
 from switch import Switch
 from globals import FAT_TREE_K, slices
 from ryu.ofproto.ofproto_v1_5_parser import OFPPortStats
@@ -56,18 +56,13 @@ class FlowScheduler(Thread):
 
             self.__detect_flows()
             self.__detect_congestions()
-            self.__send_port_status_req()
-            # TODO Before migrating a service, check if other paths are available
-            # in case, set the new path
-            # Use a flag from global parameters to change this rule and 
-            # readily migrate the service instead of searching for other paths (to be used for the presentation/demo)
-            # TODO When creating a new path, add flowtable entry with high priority
+            
             if (cont % 4 == 0):
-                self.__optimize_services()
-
-            self.print_switches_info()
+                self.__optimize_network()
 
             cont += 1
+            self.print_switches_info()
+            self.__send_port_status_req()
             sleep(sleeptime)   
 
 
@@ -114,8 +109,8 @@ class FlowScheduler(Thread):
                     self.congestions.append(DownLink(Switch(sw.dpid64), port - 1))
                     print(f'Discovered congested downlink on {sw.name} to pod {port - 1}')
 
-
-    def __optimize_services(self) -> None:
+    
+    def __optimize_network(self) -> None:
         """ Find new solutions for running services to eliminate congestions """
         # Load services
         services = {}
@@ -124,31 +119,58 @@ class FlowScheduler(Thread):
 
         # Search for services related to discovered congestion
         for downlink in self.congestions:
-            for srv, ip in services.items():
-                srv_pod = int(ip.split('.')[1])
+            for srv, srv_ip in services.items():
+                srv_pod = int(srv_ip.split('.')[1])
                 if srv_pod == downlink.dst_pod:
-                    # Find pod with an available downlink and server
-                    for pod in range(0, FAT_TREE_K):
-                        
-                        core_switch = self.__search_available_core_sw(pod)
-                        if core_switch == None:
-                            continue
 
-                        available_host = self.__search_available_host(pod, services)
-                        if available_host == None:
-                            continue
-                        
-                        # Update services
-                        print(f'Moved service {srv} to host {available_host}')
-                        services[srv] = available_host
-                        with open('./services/services.obj', 'wb') as file:
-                            pickle.dump(services, file)
+                    if not self.__optimize_paths(srv_ip):
+                        self.__optimize_services(srv, services)
+                    break  
 
-                        self.__update_slice(ip, available_host)
 
-                        self.__create_path(available_host, core_switch)
-                        return  # Other congested downlinks could be still there,
-                                # in case the services will be migrated on the next scheduler cycle 
+    def __optimize_paths(self, service_ip: str) -> bool:
+        """ Schedule a new non-congested path to the service 
+        
+        @param service_ip: The destination service IP
+        @return True if an available path was found and applied, False otherwise 
+        """
+        pod = int(service_ip.split('.')[1])
+        available_core_sw = self.__search_available_core_sw(pod)
+        if available_core_sw != None:
+            self.__create_path(service_ip, available_core_sw) 
+            return True
+        return False
+
+
+    def __optimize_services(self, service_id: str, services: dict) -> bool:
+        """ Migrate service to a pod with an available downlink and server 
+        
+        @param service_id: The ID of the service to migrate
+        @param services: The dictionary with the running services
+        @return True if the service is successfully migrated and paths are updated, False otherwise
+        """
+        for pod in range(0, FAT_TREE_K):
+            
+            core_switch = self.__search_available_core_sw(pod)
+            if core_switch == None:
+                continue
+
+            available_host = self.__search_available_host(pod, services)
+            if available_host == None:
+                continue
+            
+            # Update services
+            print(f'Moved service {service_id} to host {available_host}')
+            old_ip = services[service_id] 
+            services[service_id] = available_host
+            with open('./services/services.obj', 'wb') as file:
+                pickle.dump(services, file)
+
+            self.__update_slice(old_ip, available_host)
+            self.__create_path(available_host, core_switch)
+            return True 
+
+        return False
 
 
     def __search_available_core_sw(self, pod: int) -> typing.Optional[Switch]:
@@ -210,13 +232,18 @@ class FlowScheduler(Thread):
             slices[old_slice].remove(new_srv)
         
 
-    def __create_path(self, dst: str, via_switch: Switch) -> None:
-        print(f'Create path to {dst} via {via_switch.name}')
+    def __create_path(self, dst_ip: str, via_switch: Switch) -> None:
+        """ Update FlowTables on edge and aggregation switches to create a path to dst through via_switch
+        
+        @param dst_ip: Destination host IP address 
+        @param via_switch: Core switch to be used in the path
+        """
+        print(f'Create path to {dst_ip} via {via_switch.name}')
         
         for dpid, datapath in self.datapaths.items():
             sw = Switch(dpid)
-            if sw.is_core: 
-                continue
+            if sw.is_core or sw.pod == int(dst_ip.split('.')[1]): 
+                continue    # Do not update core switches and switches in the same pod of the dst host
             
             port = -1
             if sw.is_edge:      # Edge
@@ -226,10 +253,11 @@ class FlowScheduler(Thread):
 
             self.add_flow_callback(
                 datapath=datapath, 
-                ip=dst, 
+                ip=dst_ip, 
                 mask=0xFFFFFFFF, 
                 port=port, 
-                timeout=30
+                timeout=30,
+                priority=int(time() & 0xFFFF)
             )
                             
 
@@ -268,5 +296,3 @@ class FlowScheduler(Thread):
                 for i in range(1, FAT_TREE_K + 1):
                     print(f'\t port {i} -- TX: {switch.port_stats[i].dtx_bytes}, \tRX: {switch.port_stats[i].drx_bytes}')
         print('=============== =========================== ===============\n')
-
-        

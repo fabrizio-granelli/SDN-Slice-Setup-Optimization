@@ -8,13 +8,37 @@ from network.topology import FatTreeTopo
 import pickle
 import pathlib
 import time
+import typing
 
 
 mgr: VNFManager = None
-running_services = {}
+running_services: typing.Dict[str, str] = {}    # Local list of running services, 
+                                                # to be compared to the global one save in services.obj
 abs_path = pathlib.Path(__file__).parent.resolve()
 
+
+def migrate_service(name: str, old_ip: str, new_ip: str) -> APPContainer:
+    """ Move the container running on a host to a new host
+
+    @param old_ip: The IP address of the host running the container
+    @param new_ip: The IP address of the host where to run the new container
+    """
+    old_hostname = get_hostname(old_ip)
+
+    new_srv = spawn_service(name, new_ip)
+    mgr.removeContainer( f'srv{name}_{old_hostname}' )
+    
+    running_services[name] = new_ip
+    return new_srv
+
+
 def spawn_service(name: str, ip: str) -> APPContainer:
+    """ Run a new container as a service inside specified host
+
+    @param name: The name of the container
+    @param ip: The IP Address of the target host
+    @return The created container object  
+    """
     hostname = get_hostname(ip)
     running_services[name] = ip
     return mgr.addContainer( 
@@ -28,17 +52,14 @@ def spawn_service(name: str, ip: str) -> APPContainer:
     )
 
 
-def migrate_service(name: str, old_ip: str, new_ip: str) -> APPContainer:
-    old_hostname = get_hostname(old_ip)
-
-    new_srv = spawn_service(name, new_ip)
-    mgr.removeContainer( f'srv{name}_{old_hostname}' )
-    
-    running_services[name] = new_ip
-    return new_srv
-
-
 def spawn_client(name: str, host: str, target_srv: str) -> APPContainer:
+    """ Run a new container as a client inside specified host
+
+    @param name: The name of the container
+    @param host: The mininet hostname 
+    @param target_srv: The service IP that the client will connect to
+    @return The created container object  
+    """
     return mgr.addContainer(
         name=name,
         dhost=host,
@@ -61,7 +82,6 @@ def get_hostname(ip: str) -> str:
 
 
 def main():
-
     # Dump services dict to make it globally available
     global services
     with open('./services/services.obj', 'wb') as file:

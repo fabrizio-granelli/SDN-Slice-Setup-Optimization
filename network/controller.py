@@ -87,7 +87,7 @@ class TwoLevelRouting(app_manager.RyuApp):
         self.scheduler.save_port_stats(ev.msg.datapath.id, ev.msg.body)
 
 
-    def add_two_level_flow(self, datapath, ip: str, mask: int, port: int, timeout: int = 0) -> None:
+    def add_two_level_flow(self, datapath, ip: str, mask: int, port: int, timeout: int = 0, priority: int = 0) -> None:
         """ Send OFPFlowMod message to set a new entry to the flowtable of the switch identified by datapath.
         This flowtable configuration works as a routing table. 
 
@@ -108,5 +108,5 @@ class TwoLevelRouting(app_manager.RyuApp):
             parser.OFPActionOutput(port),    # Forward packet to provided port
         ]  
         inst = [ parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS, actions) ]   # Just a wrapper for actions list
-        req = parser.OFPFlowMod(datapath, match=match, instructions=inst, idle_timeout=timeout)
+        req = parser.OFPFlowMod(datapath, match=match, instructions=inst, idle_timeout=timeout, priority=priority)
         datapath.send_msg(req)
