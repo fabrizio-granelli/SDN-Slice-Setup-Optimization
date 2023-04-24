@@ -257,7 +257,7 @@ class FlowScheduler(Thread):
                 mask=0xFFFFFFFF, 
                 port=port, 
                 timeout=30,
-                priority=int(time() & 0xFFFF)
+                priority=int(time()) & 0xFFFF
             )
                             
 
