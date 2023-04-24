@@ -56,7 +56,7 @@ class FlowScheduler(Thread):
 
             self.__detect_flows()
             self.__detect_congestions()
-            
+
             if (cont % 4 == 0):
                 self.__optimize_network()
 
@@ -294,5 +294,5 @@ class FlowScheduler(Thread):
             if switch.is_core:
                 print(f'{switch.name} :')
                 for i in range(1, FAT_TREE_K + 1):
-                    print(f'\t port {i} -- TX: {switch.port_stats[i].dtx_bytes}, \tRX: {switch.port_stats[i].drx_bytes}')
+                    print(f'\t Port {i}: [ TX: {switch.port_stats[i].dtx_bytes} \tRX: {switch.port_stats[i].drx_bytes} ]')
         print('=============== =========================== ===============\n')

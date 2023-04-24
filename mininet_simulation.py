@@ -1,9 +1,8 @@
-from mininet.node import OVSKernelSwitch, RemoteController, Host
+from mininet.node import OVSKernelSwitch, RemoteController
 from mininet.cli import CLI
 from mininet.link import TCLink
 from comnetsemu.net import Containernet, VNFManager, APPContainer
-from comnetsemu.node import DockerHost
-from network.globals import FAT_TREE_K, services
+from network.globals import FAT_TREE_K, services, clients
 from network.topology import FatTreeTopo 
 import pickle
 import pathlib
@@ -105,11 +104,12 @@ def main():
     net.build()
     net.start()
     
+    # Spawn clients
+    for c_name, c_host, target in clients:
+        spawn_client(name=c_name, host=c_host, target_srv=target)
+
     simulation_running = True
-
-    spawn_client(name='c1', host='p1_s0_h2', target_srv='0')
-    spawn_client(name='c2', host='p2_s0_h2', target_srv='1')
-
+    
     while simulation_running:
         try:
             # Check if services were updated by scheduler

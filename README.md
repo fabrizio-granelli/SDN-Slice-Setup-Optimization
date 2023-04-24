@@ -32,21 +32,61 @@ The first level of switches (edge) act as a filtering traffic diffuser. When the
 
 The flow scheduler is started by the RYU controller and runs as a separate software thread. Its execution loop includes the following stages:
 
-- Send OpenFlow port stats requests to core switches 
-- Analyze port stats replies to estimate the presence of data flows running through the core switches 
-- Update the TTL field for the detected flows
-- **TODO**: Create a new rule on the pod switches to redirect the flow through an unused path
-- **TODO**: In case an unused path cannot be found, migrate the service to an available host and update network slices 
+- Send OpenFlow port stats requests to core switches.
+- Analyze port stats replies to estimate the presence of data flows running through the core switches. Then update the TTL field for the detected flows.
+- Discover congested downlinks: more than one flows are using the same link from a core switch to a pod.
+- Find available downlinks and update the FlowTable on the pod switches to move the traffic through an unused path.
+- In case an unused path cannot be found because all the links to the pod are congested, migrate a destination service to another available host, update the network slices and the FlowTable on the pod switches to leverage an unused path.
 
-# Running the Simulation
+## Flow Estimation
 
-Add repo to pythonpath using `$ export PYTHONPATH=/path/to/repo`  
-Run Ryu controller using `$ ryu run network/controller.py`  
-Create topology and run simulation using `$ sudo python3 mininet_simulation.py`   
-Delete mininet status using `$ sudo mn -c`   
-Kill all containers using `$ docker rm -f $(docker ps -a -q)`  
-Build dockerfile using `$ docker build -t service_migration --file ./Dockerfile.service_migration .`   
-Build dev_test using `$ docker build -t dev_test --file ./Dockerfile.dev_test .`  
+Goal of this project is to build a Proof of Concept for the SDN technology to work for network optimization. Hence flow estimation has been implemented in a very simple form to set the context and test the controller features. A flow is detected when more data than a certain threshold is forwarded by a core switch in a given amount of time. The flow is defined by that core switch, the source pod and the destination pod (there is no distinction between different hosts generating traffic from the same pod). A downlink is considered congested when more than one flow has the same destination through the same core switch.
+
+More sophisticated flow estimation techniques should consider the type of traffic (used protocols) the source and destination hosts, the duration, the congestion on links inside the pods, and also perform probabilistic analysis on network traffic. An implementation is described in the paper [*"Hedera: Dynamic Flow Scheduling for Data Center Networks"* (Mohammad Al-Fares et al., 2010)](https://dl.acm.org/doi/10.5555/1855711.1855730).   
+
+# Simulations
+
+In the folder `simulations`, there is a series of markdown files which describe all the simulations/experiments that have been executed to test this project, including the used parameters and the outputs from Mininet and the controller.
+
+# Future Work
+
+Some different features, improvements, adaptations, tests and experiments have been left for the future, they include:
+
+- Implement a dynamic flow scheduling with a more sophisticated flow/traffic estimation mechanism, like Hedera.
+- Develop more complex services that also require a state to be saved and migrated through the network.
+- Implement fault tolerance using a protocol like Bidirectional Forwarding Detection (BFD), then test the network after the deactivation of one or more links.  
+
+# Getting Started 
+
+Add repo to pythonpath env using: 
+```bash
+$ export PYTHONPATH=/path/to/repo
+```  
+
+Move to `services` folder and build the dockerfiles using: 
+```bash
+$ docker build -t service_migration --file ./Dockerfile.service_migration .   
+$ docker build -t dev_test --file ./Dockerfile.dev_test .
+```  
+
+To run the simulation, first of all set the global parameters in `network/globals.py`
+
+Then, run Ryu controller using: 
+```bash
+$ ryu run network/controller.py
+```  
+
+Create the network topology and start the mininet simulation using:
+```bash
+$ sudo python3 mininet_simulation.py
+```
+
+To clean the environment and kill the Docker containers run:
+
+```bash
+$ docker rm -f $(docker ps -a -q)
+$ sudo mn -c   
+```  
 
 # Acknowledgments
 

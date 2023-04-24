@@ -1,3 +1,10 @@
+# Scenario 0
+
+No services are spawned, all the hosts are in the same slice and they can ping each other. This scenario tests the network topology and the two-level routing mechanism. 
+
+# Parameters
+
+```python
 FAT_TREE_K = 4
 
 slices = {
@@ -12,3 +19,8 @@ slices = {
 clients = [ ]
 
 services = { }
+```
+
+# Mininet Output
+
+# Controller Output
