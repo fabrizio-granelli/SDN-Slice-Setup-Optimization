@@ -34,8 +34,8 @@ services = {
 The only information shown in the mininet console regards the initial creation of the two services. 
 
 ```
-Created service on host 10.0.0.2
-Created service on host 10.0.1.2
+Created service 0 on host 10.0.0.2
+Created service 1 on host 10.0.1.2
 ```
 
 # Controller Output

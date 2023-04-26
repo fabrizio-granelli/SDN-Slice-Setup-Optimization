@@ -123,11 +123,11 @@ def main():
                 if srv not in running_services.keys():
                     # A new service was spawned
                     spawn_service(srv, ip)
-                    print('Created service on host ' + ip)
+                    print(f'Created service {srv} on host {ip}')
                 if running_services[srv] != ip:
                     # A service must be migrated
                     migrate_service(srv, running_services[srv], ip)
-                    print('Migrated service to host ' + ip)
+                    print(f'Migrated service {srv} to host {ip}')
 
             time.sleep(2)
         except EOFError:

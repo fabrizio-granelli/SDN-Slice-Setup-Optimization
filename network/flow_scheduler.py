@@ -181,9 +181,9 @@ class FlowScheduler(Thread):
         @return Available core switch || None
         """
         available_core_sw = { sw.dpid64: True for sw in self.switches.values() if sw.is_core }
-        for dl in self.congestions:
-            if pod == dl.dst_pod:
-                available_core_sw[dl.switch.dpid64] = False
+        for flow in self.flows:
+            if pod == flow.out_pod:
+                available_core_sw[flow.switch.dpid64] = False
         for dpid, is_available in available_core_sw.items():
             if is_available:
                 sw = Switch(dpid)
