@@ -1,4 +1,8 @@
-# Scenario 1
+# Scenario 2
+
+In this scenario, three services and five clients are spawned in the network as shown in the schema below. Clients 1 and 2 create two flows going through core switch c11 to pod 0, therefore a single congested downlink is identified. Clients 3, 4 and 5 create flows running though core switch c21, c12, c22 respectively, hence the downlinks to pod 0 are considered busy. 
+
+The flow scheduler searches for a new path to re-route traffic between clients 1 and 2 and services 0 and 1. Since no paths are available, the scheduler migrates the service 0 to from pod 0 to pod 1, so that an intrapod communication is created between client 1 and service 0 and the congestion on core switch c11 is eliminated.  
 
 ```
 Before migration:
@@ -15,6 +19,8 @@ client_3 (pod 2) -> core c21 -> service_2 (pod 0)
 client_4 (pod 2) -> core c12 -> service_2 (pod 0)  
 client_5 (pod 2) -> core c22 -> service_1 (pod 0)  
 ```
+
+<img src="./images/scenario_2.png">
 
 ## Known Issues
 

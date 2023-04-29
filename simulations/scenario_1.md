@@ -1,6 +1,16 @@
 # Scenario 1
 
-Two services are spawned in pod 0 and two clients are in pod 1 and 2 respectively. This setup creates two initial flows running through the core switch c11 to pod 0, therefore the downlink becomes congested. The flow scheduler detects the congestion and moves the communication between 10.0.0.2 and 10.1.0.2 to a new available pathm through core switch c21. 
+Two services are spawned in pod 0 and two clients are in pod 1 and 2 respectively. This setup creates two initial flows running through the core switch c11 to pod 0, therefore the downlink becomes congested. The flow scheduler detects the congestion and moves the communication between 10.0.0.2 and 10.1.0.2 to a new available path through core switch c21. 
+
+```
+Before path update:
+client_1 (pod 1) -> core c11 -> service_0 (pod 0)   <-- First flow on c11
+client_2 (pod 2) -> core c11 -> service_1 (pod 0)   <-- Second flow on c11
+
+After path update:
+client_1 (pod 1) -> core c21 -> service_0 (pod 0)   <-- Only flow on c21
+client_2 (pod 2) -> core c11 -> service_1 (pod 0)   <-- Only flow on c11
+```
 
 ## Known Issues
 

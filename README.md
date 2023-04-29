@@ -1,6 +1,6 @@
 # SDN Slice Setup Optimization
 
-This repository contains the source code for the project of the course Networking II (Softwarized and Virtualized Mobile Networks) at the University of Trento.
+This repository contains the source code for the project of the course Networking II (Softwarized and Virtualized Mobile Networks) at the University of Trento. A [presentation](./presentation.pdf) is available with a high level description of the used methods and technologies.
 
 Goal of the project is to develop a RYU-based SDN controller to slice the network, dynamically re-allocate services and schedule new routes in order to maintain the desired QoS. The simulation is based on [Mininet](http://mininet.org/), a realistic virtual network running real kernel, switch and application code on a [Comnetsemu](https://git.comnets.net/public-repo/comnetsemu) Virtual Machine.
 
@@ -46,7 +46,7 @@ More sophisticated flow estimation techniques should consider the type of traffi
 
 # Simulations
 
-In the folder `simulations`, there is a series of markdown files which describe all the simulations/experiments that have been executed to test this project, including the used parameters and the outputs from Mininet and the controller.
+In the folder `simulations`, there is a series of markdown files which describe some significant simulations/experiments that have been executed to test this project, including the used parameters and the outputs from Mininet and the controller.
 
 # Future Work
 
