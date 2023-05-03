@@ -35,8 +35,8 @@ The flow scheduler is started by the RYU controller and runs as a separate softw
 - Send OpenFlow port stats requests to core switches.
 - Analyze port stats replies to estimate the presence of data flows running through the core switches. Then update the TTL field for the detected flows.
 - Discover congested downlinks: more than one flows are using the same link from a core switch to a pod.
-- Find available downlinks and update the FlowTable on the pod switches to move the traffic through an unused path.
-- In case an unused path cannot be found because all the links to the pod are congested, migrate a destination service to another available host, update the network slices and the FlowTable on the pod switches to leverage an unused path.
+- Find available downlinks and update the FlowTable on the pod switches to re-route the traffic through an unused path.
+- In case an unused path cannot be found because all the links to the pod are congested, migrate a destination service to another available host, update the network slices and the FlowTable on the pod switches to re-route traffic through an unused path.
 
 ## Flow Estimation
 
@@ -87,6 +87,13 @@ To clean the environment and kill the Docker containers run:
 $ docker rm -f $(docker ps -a -q)
 $ sudo mn -c   
 ```  
+
+In case of Docker error when removing a container (Permission Denied) try running:
+
+```bash
+$ snap refresh docker --beta
+```
+
 
 # Acknowledgments
 

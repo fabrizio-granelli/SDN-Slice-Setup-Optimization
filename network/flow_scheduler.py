@@ -62,7 +62,7 @@ class FlowScheduler(Thread):
 
             cont += 1
             self.print_switches_info()
-            self.__send_port_status_req()
+            self.__send_port_stats_req()
             sleep(sleeptime)   
 
 
@@ -261,8 +261,8 @@ class FlowScheduler(Thread):
             )
                             
 
-    def __send_port_status_req(self) -> None:
-        """ Send a Port Status Request to core switches in the network """
+    def __send_port_stats_req(self) -> None:
+        """ Send a Port Stats Request to core switches in the network """
         for dpid, datapath in self.datapaths.items():
             if Switch(dpid).is_core:
                 ofp = datapath.ofproto

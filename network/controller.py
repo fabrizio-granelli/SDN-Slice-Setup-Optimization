@@ -11,12 +11,12 @@ from flow_scheduler import FlowScheduler
 import typing
 
 
-class TwoLevelRouting(app_manager.RyuApp):
+class SDNController(app_manager.RyuApp):
 
     OFP_VERSIONS = [ ofproto_v1_5.OFP_VERSION ]
 
     def __init__(self, *args, **kwargs):
-        super(TwoLevelRouting, self).__init__(*args, **kwargs)
+        super(SDNController, self).__init__(*args, **kwargs)
         self.k: int = FAT_TREE_K
         self.k_2: int = int(FAT_TREE_K / 2)       
         self.switches: typing.Dict[int, Datapath] = {}    # Contains all the datapaths connected to the controller
@@ -68,13 +68,7 @@ class TwoLevelRouting(app_manager.RyuApp):
         dst_hostid = int(ip_pkt.dst.split('.')[3])
 
         # Check that src is in the same slice of dst
-        bool_slice = False
-        for slice in slices.values():
-            if ip_pkt.dst in slice and ip_pkt.src in slice:
-                bool_slice = True
-                break
-        
-        if not bool_slice:
+        if not any( ip_pkt.src in slice and ip_pkt.dst in slice for slice in slices.values() ):
             return
 
         port = (dst_hostid - 2 + switch.swn) % self.k_2 + self.k_2

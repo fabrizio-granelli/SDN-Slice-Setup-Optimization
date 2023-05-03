@@ -12,6 +12,8 @@ client_1 (pod 1) -> core c21 -> service_0 (pod 0)   <-- Only flow on c21
 client_2 (pod 2) -> core c11 -> service_1 (pod 0)   <-- Only flow on c11
 ```
 
+<img src="./images/scenario_1.png">
+
 ## Known Issues
 
 None
