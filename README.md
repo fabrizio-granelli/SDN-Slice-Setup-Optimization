@@ -84,16 +84,9 @@ $ sudo python3 mininet_simulation.py
 To clean the environment and kill the Docker containers run:
 
 ```bash
-$ docker rm -f $(docker ps -a -q)
+$ ./services/kill_containers.sh
 $ sudo mn -c   
 ```  
-
-In case of Docker error when removing a container (Permission Denied) try running:
-
-```bash
-$ snap refresh docker --beta
-```
-
 
 # Acknowledgments
 

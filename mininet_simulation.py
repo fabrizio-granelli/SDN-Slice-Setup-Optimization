@@ -4,6 +4,7 @@ from mininet.link import TCLink
 from comnetsemu.net import Containernet, VNFManager, APPContainer
 from network.globals import FAT_TREE_K, services, clients
 from network.topology import FatTreeTopo 
+from os import system
 import pickle
 import pathlib
 import time
@@ -25,7 +26,13 @@ def migrate_service(name: str, old_ip: str, new_ip: str) -> APPContainer:
     old_hostname = get_hostname(old_ip)
 
     new_srv = spawn_service(name, new_ip)
-    mgr.removeContainer( f'srv{name}_{old_hostname}' )
+    
+    try:   
+        mgr.removeContainer( f'srv{name}_{old_hostname}' )
+    except:
+        # Workaround to fix Permission Denied error on container removal
+        system(f'docker exec -it srv{name}_{old_hostname} kill 1')
+        mgr.removeContainer( f'srv{name}_{old_hostname}' )
     
     running_services[name] = new_ip
     return new_srv
