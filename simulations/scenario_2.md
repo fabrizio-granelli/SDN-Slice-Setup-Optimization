@@ -20,11 +20,15 @@ client_4 (pod 2) -> core c12 -> service_2 (pod 0)
 client_5 (pod 2) -> core c22 -> service_1 (pod 0)  
 ```
 
+Before migration:
 <img src="./images/scenario_2.png">
+
+After migration:
+<img src="./images/scenario_2_opt.png">
 
 ## Known Issues
 
-Clients are not considered when a host is searched for service migration, therefore a new container can be spawned inside a host with another running container.
+Clients are not considered when a host is searched for service migration, therefore a new container can be spawned inside a host with another running container. This is not a real issue, since containers are made to work in multiple instances on a single host. 
 
 # Parameters
 

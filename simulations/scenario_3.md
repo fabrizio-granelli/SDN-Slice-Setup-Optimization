@@ -4,7 +4,7 @@ This scenario is similar to number 2, except client 1 is moved to pod 3 and targ
 
 In this case, there are still the same two clients that are generating traffic, hence a new congestion is created on the downlink between core switch c11 and pod 1. This time, the flow scheduler finds an available path through core switch c21, traffic is re-routed, and the congestions are considered solved.  
 
-This scenario exposes the weaknesses of the simplified method used to estimate flows and detect congestions, and the flow scheduling algorithm.  
+This scenario exposes the weaknesses of the simplified method used to estimate flows and detect congestions, and the flow scheduling algorithm. Indeed, after the optimization, the scenario has actually been made worse, with a new congested uplink.  
 
 ```
 Before migration:
@@ -29,7 +29,14 @@ client_4 (pod 2) -> core c12 -> service_2 (pod 0)
 client_5 (pod 2) -> core c22 -> service_1 (pod 0)  
 ```
 
+Before migration:
 <img src="./images/scenario_3.png">
+
+After migration:
+<img src="./images/scenario_3_opt_1.png">
+
+After path update:
+<img src="./images/scenario_3_opt_2.png">
 
 ## Known Issues
 
