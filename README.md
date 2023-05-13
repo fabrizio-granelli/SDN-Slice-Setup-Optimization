@@ -16,6 +16,8 @@ The class contained in `network/topology.py` implements a special instance of a 
 
 IP addresses of edge and aggregation switches are `10.pod.switch.1` where switches are numbered left to right and bottom to top. Core switches IP addresses are `10.k.j.i` where $K$ is the topology parameter, $j$ and $i$ denote the coordinates of the switch in the $(k/2)^2$ core switch grid starting from top-left. Servers have IP addresses of the form `10.pod.switch.serverID`.     
 
+One of the most important benefits provided by the Fat-Tree topology is the path redundancy, as there are exactly $(K/2)^2$ shortest paths for the communication between hosts in different pods. The SDN controller developed in this project leverages this property to optimize the network resources. 
+
 # SDN Controller
 
 The SDN Controller is implemented using [RYU SDN Framework](https://ryu-sdn.org/) which provides well defined APIs to manage network switches using the OpenFlow protocol version 1.5.
