@@ -1,4 +1,4 @@
-# Scenario 4
+# Scenario 3
 
 This scenario is similar to number 2, except client 1 is moved to pod 3 and target services are different for each client. As in the previous case, there are no available paths to solve the congestion on the downlink between core switch c11 and pod 0, therefore service 0 is migrated to pod 1. 
 
